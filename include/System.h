@@ -34,12 +34,14 @@
 #include "LoopClosing.h"
 #include "KeyFrameDatabase.h"
 #include "ORBVocabulary.h"
+#ifdef VIEWER
 #include "Viewer.h"
-
+#endif
 namespace ORB_SLAM2
 {
-
+#ifdef VIEWER
 class Viewer;
+#endif
 class FrameDrawer;
 class Map;
 class Tracking;
@@ -75,7 +77,8 @@ public:
     // Proccess the given monocular frame
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Returns the camera pose (empty if tracking fails).
-    cv::Mat TrackMonocular(const cv::Mat &im, const double &timestamp);
+    //cv::Mat TrackMonocular(const cv::Mat &im, const double &timestamp);
+	cv::Mat TrackMonocular(const cv::Mat &im, const double &timestamp, cv::Point3f &pt, float &quality);
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();
@@ -149,8 +152,9 @@ private:
     LoopClosing* mpLoopCloser;
 
     // The viewer draws the map and the current camera pose. It uses Pangolin.
-    Viewer* mpViewer;
-
+#ifdef VIEWER
+	Viewer* mpViewer;
+#endif
     FrameDrawer* mpFrameDrawer;
     MapDrawer* mpMapDrawer;
 

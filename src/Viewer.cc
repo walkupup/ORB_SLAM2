@@ -17,7 +17,7 @@
 * You should have received a copy of the GNU General Public License
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
-
+#ifdef VIEWER
 #include "Viewer.h"
 #include <pangolin/pangolin.h>
 
@@ -157,8 +157,9 @@ void Viewer::Run()
         {
             while(isStopped())
             {
-                usleep(3000);
-            }
+                //usleep(3000);
+				std::this_thread::sleep_for(std::chrono::milliseconds(3));
+			}
         }
 
         if(CheckFinish())
@@ -230,3 +231,4 @@ void Viewer::Release()
 }
 
 }
+#endif

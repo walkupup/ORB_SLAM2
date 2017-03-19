@@ -12,15 +12,15 @@ echo "Configuring and building Thirdparty/g2o ..."
 
 mkdir build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j
-
+cmake .. -DCMAKE_BUILD_TYPE=Release -DG2O_EIGEN3_INCLUDE=/media/sf_proj/slam/orb_slam/ORB_SLAM2_gh/Thirdparty/eigen3.2.9
+make 
+    
 cd ../../../
 
 echo "Uncompress vocabulary ..."
 
 cd Vocabulary
-tar -xf ORBvoc.txt.tar.gz
+#tar -xf ORBvoc.txt.tar.gz
 cd ..
 
 echo "Configuring and building ORB_SLAM2 ..."
@@ -28,4 +28,4 @@ echo "Configuring and building ORB_SLAM2 ..."
 mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j
+make 

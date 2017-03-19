@@ -23,14 +23,20 @@
 #include "System.h"
 #include "Converter.h"
 #include <thread>
+#ifdef VIEWER
 #include <pangolin/pangolin.h>
+#endif
 #include <iomanip>
+bool has_suffix(const std::string &str, const std::string &suffix) {
+	std::size_t index = str.find(suffix, str.size() - suffix.size());
+	return (index != std::string::npos);
+}
 
 namespace ORB_SLAM2
 {
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
-               const bool bUseViewer):mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),mbActivateLocalizationMode(false),
+               const bool bUseViewer):mSensor(sensor), mbReset(false),mbActivateLocalizationMode(false),
         mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
@@ -62,8 +68,14 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
     mpVocabulary = new ORBVocabulary();
-    bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
-    if(!bVocLoad)
+	bool bVocLoad = false; // chose loading method based on file extension
+	if (has_suffix(strVocFile, ".txt"))
+		bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+	else if (has_suffix(strVocFile, ".bin"))
+		bVocLoad = mpVocabulary->loadFromBinaryFile(strVocFile);
+	else
+		bVocLoad = false;
+	if (!bVocLoad)
     {
         cerr << "Wrong path to vocabulary. " << endl;
         cerr << "Falied to open at: " << strVocFile << endl;
@@ -95,13 +107,14 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
     //Initialize the Viewer thread and launch
-    if(bUseViewer)
+#ifdef VIEWER
+	if(bUseViewer)
     {
         mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile);
         mptViewer = new thread(&Viewer::Run, mpViewer);
         mpTracker->SetViewer(mpViewer);
     }
-
+#endif
     //Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
@@ -131,8 +144,9 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
             // Wait until Local Mapping has effectively stopped
             while(!mpLocalMapper->isStopped())
             {
-                usleep(1000);
-            }
+                //usleep(1000);
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
 
             mpTracker->InformOnlyTracking(true);
             mbActivateLocalizationMode = false;
@@ -182,8 +196,9 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
             // Wait until Local Mapping has effectively stopped
             while(!mpLocalMapper->isStopped())
             {
-                usleep(1000);
-            }
+                //usleep(1000);
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
 
             mpTracker->InformOnlyTracking(true);
             mbActivateLocalizationMode = false;
@@ -215,7 +230,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     return Tcw;
 }
 
-cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
+cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, cv::Point3f &pt, float &quality)
 {
     if(mSensor!=MONOCULAR)
     {
@@ -233,8 +248,9 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
             // Wait until Local Mapping has effectively stopped
             while(!mpLocalMapper->isStopped())
             {
-                usleep(1000);
-            }
+                //usleep(1000);
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
 
             mpTracker->InformOnlyTracking(true);
             mbActivateLocalizationMode = false;
@@ -258,6 +274,21 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
     }
 
     cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp);
+	if (!Tcw.empty())
+	{
+		cv::Mat Rwc(3, 3, CV_32F);
+		cv::Mat twc(3, 1, CV_32F);
+		Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
+		twc = -Rwc*Tcw.rowRange(0, 3).col(3);
+		pt.x = twc.at<float>(0, 0);
+		pt.y = twc.at<float>(0, 1);
+		pt.z = twc.at<float>(0, 2);
+		quality = mpTracker->mnMatchesInliers / 1000.0f;
+	}
+	else
+	{
+		quality = 0;
+	}
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
@@ -302,21 +333,24 @@ void System::Shutdown()
 {
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
-    if(mpViewer)
-    {
-        mpViewer->RequestFinish();
-        while(!mpViewer->isFinished())
-            usleep(5000);
-    }
 
     // Wait until all thread have effectively stopped
     while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() || mpLoopCloser->isRunningGBA())
     {
-        usleep(5000);
-    }
-
+        //usleep(5000);
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
+#ifdef VIEWER
+    if(mpViewer)
+    {
+        mpViewer->RequestFinish();
+        while(!mpViewer->isFinished())
+            //usleep(5000);
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
     if(mpViewer)
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");
+#endif
 }
 
 void System::SaveTrajectoryTUM(const string &filename)

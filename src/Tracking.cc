@@ -157,12 +157,12 @@ void Tracking::SetLoopClosing(LoopClosing *pLoopClosing)
 {
     mpLoopClosing=pLoopClosing;
 }
-
+#ifdef VIEWER
 void Tracking::SetViewer(Viewer *pViewer)
 {
     mpViewer=pViewer;
 }
-
+#endif
 
 cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp)
 {
@@ -1505,13 +1505,15 @@ void Tracking::Reset()
 {
 
     cout << "System Reseting" << endl;
+#ifdef VIEWER
     if(mpViewer)
     {
         mpViewer->RequestStop();
         while(!mpViewer->isStopped())
-            usleep(3000);
-    }
-
+            //usleep(3000);
+			std::this_thread::sleep_for(std::chrono::milliseconds(3));
+	}
+#endif
     // Reset Local Mapping
     cout << "Reseting Local Mapper...";
     mpLocalMapper->RequestReset();
@@ -1545,8 +1547,10 @@ void Tracking::Reset()
     mlFrameTimes.clear();
     mlbLost.clear();
 
-    if(mpViewer)
+#ifdef VIEWER
+	if (mpViewer)
         mpViewer->Release();
+#endif
 }
 
 void Tracking::ChangeCalibration(const string &strSettingPath)
